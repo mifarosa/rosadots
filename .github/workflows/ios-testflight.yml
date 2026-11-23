@@ -1,0 +1,39 @@
+name: iOS TestFlight
+
+on:
+  # Run manually from the Actions tab.
+  workflow_dispatch:
+  # Or push a tag like v0.1.0 to build and ship to TestFlight.
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: ios-testflight
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Fail fast before spending an EAS build.
+      - run: npx tsx game.test.ts
+      - run: npx tsc --noEmit
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      # EAS builds on its own macOS workers; --auto-submit uploads the
+      # finished build to TestFlight, --no-wait frees this runner right away.
+      - run: eas build --platform ios --profile production --non-interactive --no-wait --auto-submit
