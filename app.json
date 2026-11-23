@@ -26,6 +26,12 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "3b1ab96d-ecd9-4741-a030-720866820f92"
+      }
+    },
+    "owner": "mifarosa"
   }
 }
