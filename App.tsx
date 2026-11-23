@@ -24,6 +24,7 @@ import {
 const COLORS = ['#e0457b', '#2f80ed'] as const; // player 0 (rose), player 1 (blue)
 const TINTS = ['rgba(224,69,123,0.22)', 'rgba(47,128,237,0.22)'] as const;
 const BG = '#fff8fa';
+const GUIDE = '#e9dfe5'; // faint slot shown for every free line
 const INK = '#2b2b3a';
 const SIZES = [4, 6, 8, 12];
 
@@ -78,11 +79,13 @@ function Menu({ onStart }: { onStart: (size: number) => void }) {
 function Board({
   state,
   size,
-  onMove,
+  pending,
+  onTap,
 }: {
   state: GameState;
   size: number;
-  onMove: (m: Move) => void;
+  pending: Move | null;
+  onTap: (m: Move) => void;
 }) {
   const dot = Math.max(5, Math.min(10, size / (state.cols * 6)));
   const pad = dot + 2;
@@ -98,8 +101,16 @@ function Board({
       e.nativeEvent.locationY - pad,
       cell,
     );
-    if (m) onMove(m);
+    if (m) onTap(m);
   };
+
+  const guide = Math.max(2, thick * 0.45);
+  // Rectangle of a line with the given thickness, centered on the line.
+  const rect = (m: Move, t: number) =>
+    m.kind === 'h'
+      ? { left: pad + m.c * cell, top: pad + m.r * cell - t / 2, width: cell, height: t }
+      : { left: pad + m.c * cell - t / 2, top: pad + m.r * cell, width: t, height: cell };
+  const color = COLORS[state.current];
 
   const lastMove = state.history[state.history.length - 1];
   const isLast = (kind: 'h' | 'v', r: number, c: number) =>
@@ -132,6 +143,32 @@ function Board({
         )}
         {state.h.map((row, r) =>
           row.map((o, c) =>
+            o !== null ? null : (
+              <View
+                key={`gh${r}-${c}`}
+                style={[
+                  styles.abs,
+                  { ...rect({ kind: 'h', r, c }, guide), backgroundColor: GUIDE, borderRadius: guide },
+                ]}
+              />
+            ),
+          ),
+        )}
+        {state.v.map((row, r) =>
+          row.map((o, c) =>
+            o !== null ? null : (
+              <View
+                key={`gv${r}-${c}`}
+                style={[
+                  styles.abs,
+                  { ...rect({ kind: 'v', r, c }, guide), backgroundColor: GUIDE, borderRadius: guide },
+                ]}
+              />
+            ),
+          ),
+        )}
+        {state.h.map((row, r) =>
+          row.map((o, c) =>
             o === null ? null : (
               <View
                 key={`h${r}-${c}`}
@@ -141,6 +178,7 @@ function Board({
                   top: pad + r * cell - thick / 2,
                   width: cell,
                   height: thick,
+                  borderRadius: thick / 2,
                   backgroundColor: COLORS[o],
                   opacity: isLast('h', r, c) ? 1 : 0.85,
                 }}
@@ -159,12 +197,29 @@ function Board({
                   top: pad + r * cell,
                   width: thick,
                   height: cell,
+                  borderRadius: thick / 2,
                   backgroundColor: COLORS[o],
                   opacity: isLast('v', r, c) ? 1 : 0.85,
                 }}
               />
             ),
           ),
+        )}
+        {pending && (
+          <>
+            <View
+              style={[
+                styles.abs,
+                { ...rect(pending, thick * 3), backgroundColor: TINTS[state.current], borderRadius: thick * 1.5 },
+              ]}
+            />
+            <View
+              style={[
+                styles.abs,
+                { ...rect(pending, thick * 1.5), backgroundColor: color, borderRadius: thick },
+              ]}
+            />
+          </>
         )}
         {Array.from({ length: state.rows + 1 }, (_, r) =>
           Array.from({ length: state.cols + 1 }, (_, c) => (
@@ -191,10 +246,29 @@ function Board({
 
 function Game({ size, onExit }: { size: number; onExit: () => void }) {
   const [state, setState] = useState(() => newGame(size));
+  // Line the player has selected but not confirmed yet.
+  const [pending, setPending] = useState<Move | null>(null);
   const { width, height } = useWindowDimensions();
-  const boardSize = Math.min(width - 24, height - 260);
+  const boardSize = Math.min(width - 24, height - 330);
   const over = isOver(state);
   const w = winner(state);
+
+  const confirm = () => {
+    if (pending && isLegal(state, pending)) setState(applyMove(state, pending));
+    setPending(null);
+  };
+  // First tap selects a line, tapping the same line again confirms it.
+  const onTap = (m: Move) => {
+    if (over) return;
+    if (pending && pending.kind === m.kind && pending.r === m.r && pending.c === m.c) confirm();
+    else setPending(m);
+  };
+
+  const hint = over
+    ? 'Yeni oyun için aşağıdaki butona bas'
+    : pending
+      ? 'Bu çizgi mi? Tekrar dokun ya da ✓ Çiz\'e bas'
+      : 'Bir çizgiye dokun, sonra onayla';
 
   const message = over
     ? w === 'draw'
@@ -220,11 +294,20 @@ function Game({ size, onExit }: { size: number; onExit: () => void }) {
         ))}
       </View>
       <Text style={styles.status}>{message}</Text>
-      <Board
-        state={state}
-        size={boardSize}
-        onMove={(m) => setState((s) => (isLegal(s, m) ? applyMove(s, m) : s))}
-      />
+      <Board state={state} size={boardSize} pending={pending} onTap={onTap} />
+      <Text style={styles.hint}>{hint}</Text>
+      <Pressable
+        style={({ pressed }) => [
+          styles.confirmButton,
+          { backgroundColor: COLORS[state.current] },
+          !pending && styles.disabled,
+          pressed && styles.pressed,
+        ]}
+        disabled={!pending}
+        onPress={confirm}
+      >
+        <Text style={styles.confirmText}>✓ Çiz</Text>
+      </Pressable>
       <View style={styles.buttonRow}>
         <Pressable
           style={({ pressed }) => [styles.smallButton, pressed && styles.pressed]}
@@ -239,13 +322,19 @@ function Game({ size, onExit }: { size: number; onExit: () => void }) {
             pressed && styles.pressed,
           ]}
           disabled={state.history.length === 0}
-          onPress={() => setState(undo)}
+          onPress={() => {
+            setPending(null);
+            setState(undo);
+          }}
         >
           <Text style={styles.smallButtonText}>Geri Al</Text>
         </Pressable>
         <Pressable
           style={({ pressed }) => [styles.smallButton, pressed && styles.pressed]}
-          onPress={() => setState(newGame(size))}
+          onPress={() => {
+            setPending(null);
+            setState(newGame(size));
+          }}
         >
           <Text style={styles.smallButtonText}>Yeni Oyun</Text>
         </Pressable>
@@ -299,6 +388,14 @@ const styles = StyleSheet.create({
   scoreName: { fontSize: 14, fontWeight: '700' },
   scoreValue: { fontSize: 28, fontWeight: '800', color: INK },
   status: { fontSize: 20, fontWeight: '700', color: INK },
+  abs: { position: 'absolute' },
+  hint: { fontSize: 16, color: '#666', textAlign: 'center', paddingHorizontal: 16 },
+  confirmButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 48,
+    borderRadius: 30,
+  },
+  confirmText: { color: '#fff', fontSize: 22, fontWeight: '800' },
   box: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
   mark: { fontWeight: '700', includeFontPadding: false },
   buttonRow: { flexDirection: 'row', gap: 10 },
