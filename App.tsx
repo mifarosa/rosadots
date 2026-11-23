@@ -38,6 +38,9 @@ function pickMove(s: GameState, x: number, y: number, cell: number): Move | null
   if (r < 0 || c < 0 || r >= s.rows || c >= s.cols) return null;
   const dx = x - c * cell;
   const dy = y - r * cell;
+  // Dead zone: a tap in the middle of a big box is ambiguous (all four edges
+  // are about equally close), so select nothing instead of guessing.
+  if (cell >= 40 && Math.min(dx, dy, cell - dx, cell - dy) > cell * 0.35) return null;
   const candidates: Array<[number, Move]> = [
     [dy, { kind: 'h', r, c }], // top
     [cell - dy, { kind: 'h', r: r + 1, c }], // bottom
@@ -81,11 +84,13 @@ function Board({
   size,
   pending,
   onTap,
+  onMiss,
 }: {
   state: GameState;
   size: number;
   pending: Move | null;
   onTap: (m: Move) => void;
+  onMiss: () => void;
 }) {
   const dot = Math.max(5, Math.min(10, size / (state.cols * 6)));
   const pad = dot + 2;
@@ -102,6 +107,7 @@ function Board({
       cell,
     );
     if (m) onTap(m);
+    else onMiss();
   };
 
   const guide = Math.max(2, thick * 0.45);
@@ -248,6 +254,8 @@ function Game({ size, onExit }: { size: number; onExit: () => void }) {
   const [state, setState] = useState(() => newGame(size));
   // Line the player has selected but not confirmed yet.
   const [pending, setPending] = useState<Move | null>(null);
+  // True after a tap that did not land close enough to any line.
+  const [missed, setMissed] = useState(false);
   const { width, height } = useWindowDimensions();
   const boardSize = Math.min(width - 24, height - 330);
   const over = isOver(state);
@@ -260,13 +268,16 @@ function Game({ size, onExit }: { size: number; onExit: () => void }) {
   // First tap selects a line, tapping the same line again confirms it.
   const onTap = (m: Move) => {
     if (over) return;
+    setMissed(false);
     if (pending && pending.kind === m.kind && pending.r === m.r && pending.c === m.c) confirm();
     else setPending(m);
   };
 
   const hint = over
     ? 'Yeni oyun için aşağıdaki butona bas'
-    : pending
+    : missed
+      ? 'Ortaya değil, çizgiye biraz daha yakın dokun 👆'
+      : pending
       ? 'Bu çizgi mi? Tekrar dokun ya da ✓ Çiz\'e bas'
       : 'Bir çizgiye dokun, sonra onayla';
 
@@ -294,7 +305,10 @@ function Game({ size, onExit }: { size: number; onExit: () => void }) {
         ))}
       </View>
       <Text style={styles.status}>{message}</Text>
-      <Board state={state} size={boardSize} pending={pending} onTap={onTap} />
+      <Board state={state} size={boardSize} pending={pending}
+        onTap={onTap}
+        onMiss={() => !over && setMissed(true)}
+      />
       <Text style={styles.hint}>{hint}</Text>
       <Pressable
         style={({ pressed }) => [
