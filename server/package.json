@@ -7,7 +7,7 @@
   },
   "scripts": {
     "start": "tsx src/index.ts",
-    "test": "tsx src/rooms.test.ts && tsx src/server.test.ts && tsx src/session.test.ts",
+    "test": "tsx src/rooms.test.ts && tsx src/server.test.ts && tsx src/session.test.ts && tsx src/install.test.ts",
     "typecheck": "tsc -p ."
   },
   "dependencies": {

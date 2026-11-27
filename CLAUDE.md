@@ -31,7 +31,7 @@ Pure TypeScript at the repo root (no React / RN imports, so the online server ca
 
 Online:
 
-- `server/`: the online server (Node + `ws`, own `package.json`). `server/src/rooms.ts` is the room logic (rooms, reconnect via per-seat token, quick match, move clock, undo with consent, rematch). It has no sockets, so it is tested with a fake clock (`rooms.test.ts`). `server/src/index.ts` is only the WebSocket transport (heartbeat, rate limit). Every move is checked with `game.ts`: the server is the source of truth. Deployment: `server/README.md` (Caddy for TLS, systemd).
+- `server/`: the online server (Node + `ws`, own `package.json`). `server/src/rooms.ts` is the room logic (rooms, reconnect via per-seat token, quick match, move clock, undo with consent, rematch). It has no sockets, so it is tested with a fake clock (`rooms.test.ts`). `server/src/index.ts` is only the WebSocket transport (heartbeat, rate limit). Every move is checked with `game.ts`: the server is the source of truth. Deployment: `server/install.sh` (one command: Node, code, deps, Caddy for TLS, firewall, systemd; tested with fake systemctl/caddy in `server/src/install.test.ts`) and `server/README.md`. Production host: `deploy@217.18.208.118`, domain `rosadots.mifarosa.com`.
 - `online/session.ts`: the phone side. One WebSocket, automatic reconnect with backoff, rejoin by the saved room token (`online/storage.ts`, AsyncStorage), rebuilds the game from the server's move list. Framework-free; tested against the real server in `server/src/session.test.ts`.
 - `online/config.ts`: server URL (`EXPO_PUBLIC_ONLINE_URL`, default `wss://rosadots.mifarosa.com`). iOS release builds need `wss://`.
 - Screens: `screens/Online.tsx` (keeps the connection alive), `OnlineLobby.tsx` (create room, join by code, quick match), `OnlineGame.tsx` (waiting room, game, undo request, rematch, connection strip).
@@ -82,7 +82,7 @@ The bundle id / package cannot change after store release.
 2. Preview-then-confirm mode (first tap highlights the line, second tap confirms), keep Undo.
 3. Haptics (`expo-haptics`) on line draw and box capture; optional sound.
 4. Play vs computer: easy and medium are done. Next: hard level (chain counting / double-cross, alpha-beta search with a depth limit on big boards).
-5. Online multiplayer: code is written and tested (room codes, reconnect, quick match, move clock, undo with consent, rematch). Still to do: deploy `server/` (DNS A record `rosadots.mifarosa.com`, Caddy, systemd; see `server/README.md`), then try it on two real phones. Not done yet: persisting theme/color choices, push notification when it is your turn.
+5. Online multiplayer: code is written and tested (room codes, reconnect, quick match, move clock, undo with consent, rematch). Still to do: deploy `server/` with `server/install.sh` (needs the DNS A record `rosadots.mifarosa.com` -> `217.18.208.118` and ports 80/443 open in the hosting provider's firewall), then try it on two real phones. Not done yet: persisting theme/color choices, push notification when it is your turn.
 6. Store prep: icon, splash, privacy policy, EAS Build for iOS/Android.
 
 ## Known notes

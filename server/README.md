@@ -23,11 +23,49 @@ Telefon ──wss──▶ Caddy (TLS) ──ws──▶ bu sunucu (127.0.0.1:87
 Dozi'nin bildirim sunucusu evdeki bir cihazda çalışıp yalnızca dışarı bağlanıyordu. Bu sunucu ise internetten
 **gelen** bağlantıları kabul eder; bu yüzden alan adı, TLS ve açık 80/443 portları gerekir.
 
+### Hızlı kurulum (önerilen)
+
+**1. DNS (bilgisayarından, bir kez).** Alan adının DNS ayarlarında bir **A kaydı** ekle:
+`rosadots.mifarosa.com` → `217.18.208.118` (`dozi.mifarosa.com` ile aynı yerden). Yayılması birkaç dakika sürebilir.
+
+**2. Sağlayıcının güvenlik duvarı (bir kez, gerekiyorsa).** Sunucunun barındırıldığı yerde (bulut ya da hosting paneli)
+80 ve 443 portları dışarıya açık olmalı. Birçok sağlayıcıda varsayılan olarak kapalıdır; panelde "firewall",
+"security group" ya da "güvenlik listesi" bölümünden kaynak `0.0.0.0/0`, protokol TCP, port `80` ve `443` için izin ekle
+(Oracle Cloud'da: VCN → Security List → Ingress Rules). Betik sunucunun **içindeki** güvenlik duvarını (`ufw`,
+`iptables`) kendisi açar, ama sağlayıcının panelindekine dokunamaz.
+
+**3. Sunucuda tek komut:**
+
+```sh
+ssh deploy@217.18.208.118
+git clone https://github.com/mifarosa/rosadots ~/rosadots
+bash ~/rosadots/server/install.sh
+```
+
+Betik sırayla şunları yapar ve her adımda ne yaptığını yazar:
+
+1. Node.js 20.6+ yoksa resmî Node.js 22'yi nodejs.org'dan, sağlama toplamını doğrulayarak kurar.
+2. Kodu günceller (`git pull`).
+3. Bağımlılıkları kurar (`npm ci --omit=dev`), yoksa `.env` oluşturur. Var olan `.env`'e dokunmaz.
+4. Caddy'yi kurar (yoksa), `Caddyfile`'a yalnızca kendi bloğunu yazar (başka siteler varsa korunur), doğrular,
+   güvenlik duvarında 80/443'ü açar (`ufw` ya da `iptables`).
+5. systemd servisini (`rosadots-server`) yazar ve başlatır.
+6. Kontrol eder: sunucu yerelde ayakta mı, DNS bu alan adını çözüyor mu, `https://rosadots.mifarosa.com` yanıt veriyor mu.
+
+Sonunda `wss://rosadots.mifarosa.com` adresinin hazır olduğunu yazar. Sertifika alınamazsa (genelde DNS ya da port
+sorunu) sebebi söyler; düzeltince betiği **tekrar çalıştırmak güvenlidir**.
+
+Alan adını değiştirmek için: `ROSADOTS_DOMAIN=baska.alan.adi bash ~/rosadots/server/install.sh`.
+Servis `root` yerine betiği çalıştıran kullanıcıyla (burada `deploy`) çalışır.
+
+### Elle kurulum (ayrıntı)
+
+Hızlı kurulum işini yaptıysa bunları okuman gerekmez. Betiğin yaptıklarının elle karşılığı:
+
 **1. DNS.** Alan adının DNS ayarlarında bir **A kaydı** ekle: `rosadots.mifarosa.com` → sunucunun IP adresi.
 (`dozi.mifarosa.com` ile aynı yerden.) Yayılması birkaç dakika sürebilir.
 
-**2. Güvenlik duvarı.** 80 ve 443 portları dışarıya açık olmalı (Oracle Cloud'da hem VCN güvenlik listesinde
-hem sunucudaki `iptables`/`ufw`'de).
+**2. Güvenlik duvarı.** 80 ve 443 portları dışarıya açık olmalı (sağlayıcının panelinde ve sunucudaki `iptables`/`ufw`'de).
 
 **3. Caddy** (otomatik ücretsiz TLS sertifikası):
 
@@ -86,9 +124,13 @@ curl -i https://rosadots.mifarosa.com
 
 ## Güncelleme
 
+Betiği tekrar çalıştırmak yeterli (kodu çeker, bağımlılıkları ve servisi yeniler):
+
 ```sh
-cd /opt/rosadots && git pull && cd server && npm ci --omit=dev && sudo systemctl restart rosadots-server
+bash ~/rosadots/server/install.sh
 ```
+
+Elle: `cd ~/rosadots && git pull && cd server && npm ci --omit=dev && sudo systemctl restart rosadots-server`.
 
 Oyun kuralları (`game.ts`) değiştiyse uygulamayı da yeniden derleyip yayınla: telefon ve sunucu aynı kuralları
 kullanmalı. Yeniden başlatma açık odaları siler; oynayanlar odaya geri dönemez, o yüzden sakin bir saatte yap.
@@ -112,7 +154,7 @@ Sonra `npx expo start`. Düz `ws://` yalnızca geliştirmede çalışır; TestFl
 ## Testler
 
 ```sh
-cd server && npm test        # oda mantığı (sahte saatle), gerçek soketlerle uçtan uca, telefon tarafı oturumu
+cd server && npm test        # oda mantığı (sahte saatle), gerçek soketlerle uçtan uca, telefon tarafı oturumu, install.sh
 npm run typecheck
 ```
 
