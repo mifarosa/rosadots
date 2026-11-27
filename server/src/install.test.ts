@@ -29,6 +29,8 @@ function sandbox() {
     chmodSync(path.join(bin, name), 0o755);
   };
   stub('systemctl', `echo "$@" >> "${root}/systemctl.log"; exit 0`);
+  stub('getent', `exit \${FAKE_GETENT:-0}`); // 2 = the domain does not resolve (yet)
+  stub('curl', `echo 426`); // the server answers plain HTTP with 426
   stub('caddy', `[ "$1" = validate ] && exit "\${FAKE_CADDY_VALIDATE:-0}"; echo "v2.8.4 h1:fake"`);
   return {
     root,
@@ -121,6 +123,17 @@ const count = (text: string, part: string) => text.split(part).length - 1;
   assert.notEqual(r.status, 0);
   assert.match(r.out, /Geçersiz alan adı/);
   assert.ok(!existsSync(sb.caddyfile));
+}
+
+// The final checks must not stop the script, even when DNS does not resolve yet.
+{
+  const sb = sandbox();
+  const r = run(sb, { ROSADOTS_SKIP_CHECK: '', FAKE_GETENT: '2' });
+  assert.equal(r.status, 0, r.out);
+  assert.match(r.out, /6\/6 Kontrol/);
+  assert.match(r.out, /henüz bir adrese çözülmüyor/);
+  assert.match(r.out, /https:\/\/rosadots\.example\.com çalışıyor/);
+  assert.match(r.out, /Kurulum tamam/);
 }
 
 // Without systemd or Caddy the script only prepares the files.

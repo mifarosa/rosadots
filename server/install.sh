@@ -119,7 +119,7 @@ if [ -z "$ROOT" ]; then
   command -v git >/dev/null 2>&1 || die "git gerekli. Kur ve tekrar çalıştır."
   BRANCH=${ROSADOTS_BRANCH:-}
   if [ -z "$BRANCH" ]; then
-    BRANCH=$(git ls-remote --symref "$REPO_URL" HEAD 2>/dev/null | sed -n 's|^ref: refs/heads/\(.*\)\tHEAD$|\1|p' | head -n1)
+    BRANCH=$(git ls-remote --symref "$REPO_URL" HEAD 2>/dev/null | sed -n 's|^ref: refs/heads/\(.*\)\tHEAD$|\1|p' | head -n1 || true)
     [ -n "$BRANCH" ] || die "Deponun varsayılan dalı bulunamadı ($REPO_URL). ROSADOTS_BRANCH=<dal> ver."
   fi
   if [ -d "$ROOT/.git" ]; then
@@ -206,11 +206,11 @@ open_firewall() {
     ok "ufw: 80 ve 443 açıldı"
   elif command -v iptables >/dev/null 2>&1; then
     local port pos changed=0 policy
-    policy=$(as_root iptables -S INPUT 2>/dev/null | sed -n 's/^-P INPUT //p' | head -n1)
+    policy=$(as_root iptables -S INPUT 2>/dev/null | sed -n 's/^-P INPUT //p' | head -n1 || true)
     for port in 80 443; do
       as_root iptables -C INPUT -p tcp --dport "$port" -j ACCEPT 2>/dev/null && continue
       # İlk REJECT/DROP kuralının önüne koy (Oracle Cloud imajları sonda REJECT ile gelir).
-      pos=$(as_root iptables -L INPUT --line-numbers -n 2>/dev/null | awk '/REJECT|DROP/ {print $1; exit}')
+      pos=$(as_root iptables -L INPUT --line-numbers -n 2>/dev/null | awk '/REJECT|DROP/ {print $1; exit}' || true)
       if [ -n "$pos" ]; then as_root iptables -I INPUT "$pos" -p tcp --dport "$port" -j ACCEPT; changed=1
       elif [ "$policy" = DROP ]; then as_root iptables -A INPUT -p tcp --dport "$port" -j ACCEPT; changed=1
       fi
@@ -282,7 +282,7 @@ else
   else warn "Sunucu yerelde beklenen yanıtı vermedi (HTTP ${code:-yok}). 'journalctl -u $UNIT_NAME -f' ile bak."
   fi
   if [ "${ROSADOTS_SKIP_CADDY:-}" != 1 ]; then
-    resolved=$(getent hosts "$DOMAIN" 2>/dev/null | awk '{print $1; exit}')
+    resolved=$(getent hosts "$DOMAIN" 2>/dev/null | awk '{print $1; exit}' || true)
     if [ -n "$resolved" ]; then ok "DNS: $DOMAIN → $resolved (bu sunucunun herkese açık IP adresi olmalı)"
     else warn "DNS: $DOMAIN henüz bir adrese çözülmüyor. Alan adının DNS ayarına bu sunucunun IP adresiyle bir A kaydı ekle."
     fi
