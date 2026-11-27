@@ -451,7 +451,8 @@ const styles = StyleSheet.create({
   confirmText: { color: '#fff', fontSize: 20, fontWeight: '800' },
   box: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
   mark: { fontWeight: '700', includeFontPadding: false },
-  buttonRow: { flexDirection: 'row', gap: 10 },
+  // Extra space above keeps the quiet buttons away from the player 1 panel.
+  buttonRow: { flexDirection: 'row', gap: 10, marginTop: 14, marginBottom: 6 },
   // Quiet secondary buttons: outline only, muted text.
   smallButton: {
     paddingVertical: 5,
