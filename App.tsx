@@ -452,11 +452,13 @@ const styles = StyleSheet.create({
   box: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
   mark: { fontWeight: '700', includeFontPadding: false },
   buttonRow: { flexDirection: 'row', gap: 10 },
+  // Quiet secondary buttons: outline only, muted text.
   smallButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    backgroundColor: INK,
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#dccfd6',
   },
-  smallButtonText: { color: '#fff', fontWeight: '700' },
+  smallButtonText: { color: '#8f838a', fontWeight: '600', fontSize: 13 },
 });
