@@ -70,6 +70,22 @@ export function adjacentBoxes(s: GameState, m: Move): Array<[number, number]> {
   return out;
 }
 
+// Lines that would close at least one box right now (a box with 3 sides has
+// exactly one free edge). A line that closes two boxes appears twice.
+export function closingMoves(s: GameState): Move[] {
+  const out: Move[] = [];
+  for (let r = 0; r < s.rows; r++) {
+    for (let c = 0; c < s.cols; c++) {
+      if (boxSides(s, r, c) !== 3) continue;
+      if (s.h[r][c] === null) out.push({ kind: 'h', r, c });
+      else if (s.h[r + 1][c] === null) out.push({ kind: 'h', r: r + 1, c });
+      else if (s.v[r][c] === null) out.push({ kind: 'v', r, c });
+      else out.push({ kind: 'v', r, c: c + 1 });
+    }
+  }
+  return out;
+}
+
 // Returns a new state; the input is never mutated. Throws on an illegal move.
 export function applyMove(s: GameState, m: Move): GameState {
   if (!isLegal(s, m)) throw new Error('Illegal move');
@@ -110,6 +126,14 @@ export function undo(s: GameState): GameState {
   if (s.history.length === 0) return s;
   let g = newGame(s.rows, s.cols);
   for (const m of s.history.slice(0, -1)) g = applyMove(g, m);
+  return g;
+}
+
+// Undo moves until it is `p`'s turn again (at least one move, unless the
+// history is empty). Used to take back a move in a game against the computer.
+export function undoTo(s: GameState, p: Player): GameState {
+  let g = undo(s);
+  while (g.history.length > 0 && g.current !== p) g = undo(g);
   return g;
 }
 
