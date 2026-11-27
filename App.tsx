@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { createContext, useContext, useState } from 'react';
 import {
   GestureResponderEvent,
   Pressable,
@@ -19,13 +19,41 @@ import {
   undo,
   winner,
 } from './game';
+import {
+  COLOR_IDS,
+  COLOR_NAMES,
+  ColorId,
+  DEFAULT_SETTINGS,
+  PALETTE,
+  pickColor,
+  Settings,
+  Theme,
+  THEMES,
+  ThemeId,
+  textOn,
+  tint,
+} from './theme';
 
-const COLORS = ['#e0457b', '#2f80ed'] as const; // player 0 (rose), player 1 (blue)
-const TINTS = ['rgba(224,69,123,0.22)', 'rgba(47,128,237,0.22)'] as const;
-const BG = '#fff8fa';
-const GUIDE = '#e9dfe5'; // faint slot shown for every free line
-const INK = '#2b2b3a';
 const SIZES = [4, 6, 8, 12];
+
+// Everything a component needs to paint itself with the chosen look.
+interface Look {
+  theme: Theme;
+  colors: [string, string]; // solid color per player
+  tints: [string, string]; // translucent color per player
+}
+const LookContext = createContext<Look>(null as unknown as Look);
+const useLook = () => useContext(LookContext);
+
+function makeLook(s: Settings): Look {
+  const theme = THEMES[s.theme];
+  const colors: [string, string] = [PALETTE[s.theme][s.p1], PALETTE[s.theme][s.p2]];
+  return {
+    theme,
+    colors,
+    tints: [tint(colors[0], theme.tintAlpha), tint(colors[1], theme.tintAlpha)],
+  };
+}
 
 const playerName = (p: Player) => `Oyuncu ${p + 1}`;
 
@@ -58,22 +86,138 @@ function pickMove(s: GameState, x: number, y: number, cell: number): Move | null
 }
 
 function Menu({ onStart }: { onStart: (size: number) => void }) {
+  const { theme, colors } = useLook();
   return (
     <View style={styles.menu}>
-      <Text style={styles.title}>Rosadots</Text>
-      <Text style={styles.subtitle}>Noktalar ve Kutular</Text>
-      <Text style={styles.label}>Tahta boyutu</Text>
+      <Text style={[styles.title, { color: colors[0] }]}>Rosadots</Text>
+      <Text style={[styles.subtitle, { color: theme.ink }]}>Noktalar ve Kutular</Text>
+      <Text style={[styles.label, { color: theme.muted }]}>Tahta boyutu</Text>
       {SIZES.map((n) => (
         <Pressable
           key={n}
-          style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}
+          style={({ pressed }) => [
+            styles.menuButton,
+            { backgroundColor: colors[0] },
+            pressed && styles.pressed,
+          ]}
           onPress={() => onStart(n)}
         >
-          <Text style={styles.menuButtonText}>
+          <Text style={[styles.menuButtonText, { color: textOn(colors[0]) }]}>
             {n} x {n}
           </Text>
         </Pressable>
       ))}
+    </View>
+  );
+}
+
+// Round color choice for one player. A color held by the other player shows
+// that player's number; tapping it swaps the two colors.
+function ColorRow({
+  who,
+  settings,
+  onChange,
+}: {
+  who: 'p1' | 'p2';
+  settings: Settings;
+  onChange: (s: Settings) => void;
+}) {
+  const { theme } = useLook();
+  const other = who === 'p1' ? 'p2' : 'p1';
+  const mine = settings[who];
+  return (
+    <View style={styles.colorBlock}>
+      <Text style={[styles.colorTitle, { color: theme.ink }]}>
+        {who === 'p1' ? 'Oyuncu 1' : 'Oyuncu 2'}: {COLOR_NAMES[mine]}
+      </Text>
+      <View style={styles.swatchRow}>
+        {COLOR_IDS.map((id: ColorId) => {
+          const hex = PALETTE[settings.theme][id];
+          const selected = id === mine;
+          return (
+            <Pressable
+              key={id}
+              onPress={() => onChange(pickColor(settings, who, id))}
+              style={[
+                styles.swatch,
+                { backgroundColor: hex, borderColor: selected ? theme.ink : 'transparent' },
+              ]}
+            >
+              {selected ? (
+                <Text style={[styles.swatchText, { color: textOn(hex) }]}>✓</Text>
+              ) : settings[other] === id ? (
+                <Text style={[styles.swatchText, { color: textOn(hex) }]}>
+                  {other === 'p1' ? '1' : '2'}
+                </Text>
+              ) : null}
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+function Setup({
+  size,
+  settings,
+  onChange,
+  onStart,
+  onBack,
+}: {
+  size: number;
+  settings: Settings;
+  onChange: (s: Settings) => void;
+  onStart: () => void;
+  onBack: () => void;
+}) {
+  const { theme, colors } = useLook();
+  const themeButton = (id: ThemeId, label: string) => {
+    const on = settings.theme === id;
+    return (
+      <Pressable
+        key={id}
+        onPress={() => onChange({ ...settings, theme: id })}
+        style={[
+          styles.themeButton,
+          { borderColor: on ? colors[0] : theme.border },
+          on && { backgroundColor: tint(colors[0], theme.tintAlpha) },
+        ]}
+      >
+        <Text style={[styles.themeText, { color: theme.ink }]}>{label}</Text>
+      </Pressable>
+    );
+  };
+  return (
+    <View style={styles.setup}>
+      <Text style={[styles.setupTitle, { color: theme.ink }]}>
+        {size} x {size} oyun
+      </Text>
+      <View style={styles.colorBlock}>
+        <Text style={[styles.colorTitle, { color: theme.ink }]}>Tema</Text>
+        <View style={styles.themeRow}>
+          {themeButton('light', '☀️ Açık')}
+          {themeButton('dark', '🌙 Koyu')}
+        </View>
+      </View>
+      <ColorRow who="p1" settings={settings} onChange={onChange} />
+      <ColorRow who="p2" settings={settings} onChange={onChange} />
+      <Pressable
+        style={({ pressed }) => [
+          styles.menuButton,
+          { backgroundColor: colors[0] },
+          pressed && styles.pressed,
+        ]}
+        onPress={onStart}
+      >
+        <Text style={[styles.menuButtonText, { color: textOn(colors[0]) }]}>Başla</Text>
+      </Pressable>
+      <Pressable
+        style={({ pressed }) => [styles.smallButton, { borderColor: theme.border }, pressed && styles.pressed]}
+        onPress={onBack}
+      >
+        <Text style={[styles.smallButtonText, { color: theme.muted }]}>Geri</Text>
+      </Pressable>
     </View>
   );
 }
@@ -91,6 +235,7 @@ function Board({
   onTap: (m: Move) => void;
   onMiss: () => void;
 }) {
+  const { theme, colors, tints } = useLook();
   const dot = Math.max(5, Math.min(10, size / (state.cols * 6)));
   const pad = dot + 2;
   const cell = Math.floor((size - pad * 2) / Math.max(state.rows, state.cols));
@@ -115,7 +260,7 @@ function Board({
     m.kind === 'h'
       ? { left: pad + m.c * cell, top: pad + m.r * cell - t / 2, width: cell, height: t }
       : { left: pad + m.c * cell - t / 2, top: pad + m.r * cell, width: t, height: cell };
-  const color = COLORS[state.current];
+  const color = colors[state.current];
 
   const lastMove = state.history[state.history.length - 1];
   const isLast = (kind: 'h' | 'v', r: number, c: number) =>
@@ -137,11 +282,11 @@ function Board({
                     top: pad + r * cell,
                     width: cell,
                     height: cell,
-                    backgroundColor: TINTS[o],
+                    backgroundColor: tints[o],
                   },
                 ]}
               >
-                <Text style={[styles.mark, { color: COLORS[o], fontSize: cell * 0.6 }]}>✕</Text>
+                <Text style={[styles.mark, { color: colors[o], fontSize: cell * 0.6 }]}>✕</Text>
               </View>
             ),
           ),
@@ -153,7 +298,7 @@ function Board({
                 key={`gh${r}-${c}`}
                 style={[
                   styles.abs,
-                  { ...rect({ kind: 'h', r, c }, guide), backgroundColor: GUIDE, borderRadius: guide },
+                  { ...rect({ kind: 'h', r, c }, guide), backgroundColor: theme.guide, borderRadius: guide },
                 ]}
               />
             ),
@@ -166,7 +311,7 @@ function Board({
                 key={`gv${r}-${c}`}
                 style={[
                   styles.abs,
-                  { ...rect({ kind: 'v', r, c }, guide), backgroundColor: GUIDE, borderRadius: guide },
+                  { ...rect({ kind: 'v', r, c }, guide), backgroundColor: theme.guide, borderRadius: guide },
                 ]}
               />
             ),
@@ -184,7 +329,7 @@ function Board({
                   width: cell,
                   height: thick,
                   borderRadius: thick / 2,
-                  backgroundColor: COLORS[o],
+                  backgroundColor: colors[o],
                   opacity: isLast('h', r, c) ? 1 : 0.85,
                 }}
               />
@@ -203,7 +348,7 @@ function Board({
                   width: thick,
                   height: cell,
                   borderRadius: thick / 2,
-                  backgroundColor: COLORS[o],
+                  backgroundColor: colors[o],
                   opacity: isLast('v', r, c) ? 1 : 0.85,
                 }}
               />
@@ -215,7 +360,7 @@ function Board({
             <View
               style={[
                 styles.abs,
-                { ...rect(pending, thick * 3), backgroundColor: TINTS[state.current], borderRadius: thick * 1.5 },
+                { ...rect(pending, thick * 3), backgroundColor: tints[state.current], borderRadius: thick * 1.5 },
               ]}
             />
             <View
@@ -237,7 +382,7 @@ function Board({
                 width: dot * 2,
                 height: dot * 2,
                 borderRadius: dot,
-                backgroundColor: INK,
+                backgroundColor: theme.ink,
               }}
             />
           )),
@@ -264,6 +409,7 @@ function PlayerPanel({
   flipped: boolean;
   onConfirm: () => void;
 }) {
+  const { theme, colors, tints } = useLook();
   const over = isOver(state);
   const active = !over && state.current === p;
   const w = winner(state);
@@ -288,35 +434,36 @@ function PlayerPanel({
     <View
       style={[
         styles.panel,
-        { borderColor: COLORS[p] },
-        active && { backgroundColor: TINTS[p] },
+        { borderColor: colors[p], backgroundColor: theme.panel },
+        active && { backgroundColor: tints[p] },
         flipped && { transform: [{ rotate: '180deg' }] },
       ]}
     >
       <View style={styles.panelRow}>
         <View style={styles.panelScore}>
-          <Text style={[styles.scoreName, { color: COLORS[p] }]}>{playerName(p)}</Text>
-          <Text style={styles.scoreValue}>{state.scores[p]}</Text>
+          <Text style={[styles.scoreName, { color: colors[p] }]}>{playerName(p)}</Text>
+          <Text style={[styles.scoreValue, { color: theme.ink }]}>{state.scores[p]}</Text>
         </View>
         <Pressable
           style={({ pressed }) => [
             styles.confirmButton,
-            { backgroundColor: COLORS[p] },
+            { backgroundColor: colors[p] },
             !canConfirm && styles.disabled,
             pressed && styles.pressed,
           ]}
           disabled={!canConfirm}
           onPress={onConfirm}
         >
-          <Text style={styles.confirmText}>✓ Çiz</Text>
+          <Text style={[styles.confirmText, { color: textOn(colors[p]) }]}>✓ Çiz</Text>
         </Pressable>
       </View>
-      <Text style={styles.panelText}>{text}</Text>
+      <Text style={[styles.panelText, { color: theme.ink }]}>{text}</Text>
     </View>
   );
 }
 
 function Game({ size, onExit }: { size: number; onExit: () => void }) {
+  const { theme } = useLook();
   const [state, setState] = useState(() => newGame(size));
   // Line the player has selected but not confirmed yet.
   const [pending, setPending] = useState<Move | null>(null);
@@ -363,14 +510,15 @@ function Game({ size, onExit }: { size: number; onExit: () => void }) {
       <PlayerPanel p={0} flipped={false} {...panelProps} />
       <View style={styles.buttonRow}>
         <Pressable
-          style={({ pressed }) => [styles.smallButton, pressed && styles.pressed]}
+          style={({ pressed }) => [styles.smallButton, { borderColor: theme.border }, pressed && styles.pressed]}
           onPress={onExit}
         >
-          <Text style={styles.smallButtonText}>Menü</Text>
+          <Text style={[styles.smallButtonText, { color: theme.muted }]}>Menü</Text>
         </Pressable>
         <Pressable
           style={({ pressed }) => [
             styles.smallButton,
+            { borderColor: theme.border },
             state.history.length === 0 && styles.disabled,
             pressed && styles.pressed,
           ]}
@@ -381,17 +529,17 @@ function Game({ size, onExit }: { size: number; onExit: () => void }) {
             setState(undo);
           }}
         >
-          <Text style={styles.smallButtonText}>Geri Al</Text>
+          <Text style={[styles.smallButtonText, { color: theme.muted }]}>Geri Al</Text>
         </Pressable>
         <Pressable
-          style={({ pressed }) => [styles.smallButton, pressed && styles.pressed]}
+          style={({ pressed }) => [styles.smallButton, { borderColor: theme.border }, pressed && styles.pressed]}
           onPress={() => {
             setPending(null);
             setMissed(false);
             setState(newGame(size));
           }}
         >
-          <Text style={styles.smallButtonText}>Yeni Oyun</Text>
+          <Text style={[styles.smallButtonText, { color: theme.muted }]}>Yeni Oyun</Text>
         </Pressable>
       </View>
     </View>
@@ -399,35 +547,55 @@ function Game({ size, onExit }: { size: number; onExit: () => void }) {
 }
 
 export default function App() {
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  // Screen flow: menu (pick size) -> setup (theme and colors) -> game.
   const [size, setSize] = useState<number | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const look = makeLook(settings);
+
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={styles.root}>
-        <StatusBar style="dark" />
-        {size === null ? (
-          <Menu onStart={setSize} />
-        ) : (
-          <Game size={size} onExit={() => setSize(null)} />
-        )}
-      </SafeAreaView>
+      <LookContext.Provider value={look}>
+        <SafeAreaView style={[styles.root, { backgroundColor: look.theme.bg }]}>
+          <StatusBar style={look.theme.statusBar} />
+          {size === null ? (
+            <Menu onStart={setSize} />
+          ) : !playing ? (
+            <Setup
+              size={size}
+              settings={settings}
+              onChange={setSettings}
+              onStart={() => setPlaying(true)}
+              onBack={() => setSize(null)}
+            />
+          ) : (
+            <Game
+              size={size}
+              onExit={() => {
+                setPlaying(false);
+                setSize(null);
+              }}
+            />
+          )}
+        </SafeAreaView>
+      </LookContext.Provider>
     </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: BG },
+  root: { flex: 1 },
   menu: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  title: { fontSize: 44, fontWeight: '800', color: COLORS[0] },
-  subtitle: { fontSize: 18, color: INK, marginBottom: 24 },
-  label: { fontSize: 14, color: '#777', marginBottom: 4 },
+  title: { fontSize: 44, fontWeight: '800' },
+  subtitle: { fontSize: 18, marginBottom: 24 },
+  label: { fontSize: 14, marginBottom: 4 },
   menuButton: {
     width: 220,
     paddingVertical: 14,
     borderRadius: 14,
-    backgroundColor: COLORS[0],
     alignItems: 'center',
   },
-  menuButtonText: { color: '#fff', fontSize: 20, fontWeight: '700' },
+  menuButtonText: { fontSize: 20, fontWeight: '700' },
   pressed: { opacity: 0.7 },
   disabled: { opacity: 0.35 },
   game: { flex: 1, alignItems: 'center', paddingHorizontal: 8, paddingVertical: 6, gap: 6 },
@@ -439,16 +607,15 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     gap: 4,
-    backgroundColor: '#fff',
   },
   panelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   panelScore: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  panelText: { fontSize: 14, fontWeight: '600', color: INK, textAlign: 'center' },
+  panelText: { fontSize: 14, fontWeight: '600', textAlign: 'center' },
   scoreName: { fontSize: 14, fontWeight: '700' },
-  scoreValue: { fontSize: 28, fontWeight: '800', color: INK },
+  scoreValue: { fontSize: 28, fontWeight: '800' },
   abs: { position: 'absolute' },
   confirmButton: { paddingVertical: 12, paddingHorizontal: 32, borderRadius: 28 },
-  confirmText: { color: '#fff', fontSize: 20, fontWeight: '800' },
+  confirmText: { fontSize: 20, fontWeight: '800' },
   box: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
   mark: { fontWeight: '700', includeFontPadding: false },
   // Extra space above keeps the quiet buttons away from the player 1 panel.
@@ -459,7 +626,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#dccfd6',
   },
-  smallButtonText: { color: '#8f838a', fontWeight: '600', fontSize: 13 },
+  smallButtonText: { fontWeight: '600', fontSize: 13 },
+  setup: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 20, paddingHorizontal: 16 },
+  setupTitle: { fontSize: 28, fontWeight: '800' },
+  colorBlock: { alignItems: 'center', gap: 8 },
+  colorTitle: { fontSize: 16, fontWeight: '700' },
+  themeRow: { flexDirection: 'row', gap: 10 },
+  themeButton: { paddingVertical: 10, paddingHorizontal: 22, borderRadius: 14, borderWidth: 2 },
+  themeText: { fontSize: 16, fontWeight: '700' },
+  swatchRow: { flexDirection: 'row', gap: 10, flexWrap: 'wrap', justifyContent: 'center' },
+  swatch: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    borderWidth: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  swatchText: { fontSize: 18, fontWeight: '800' },
 });

@@ -7,7 +7,7 @@ Mobile (iOS + Android) Dots and Boxes game built with React Native + Expo. Owner
 - Talk to the user in Turkish. Code comments in English.
 - Keep dependencies minimal. Prefer plain React Native views over extra libraries.
 - Game rules live ONLY in `game.ts` (pure TypeScript, no React/RN imports). The same file will later run on the online server to validate moves.
-- Run `npx tsx game.test.ts` after any change to `game.ts`, and `npx tsc --noEmit` after any change to `App.tsx`.
+- Run `npx tsx game.test.ts` after any change to `game.ts` (and `npx tsx theme.test.ts` after any change to `theme.ts`), and `npx tsc --noEmit` after any change to `App.tsx`.
 
 ## Game rules (implemented)
 
@@ -20,7 +20,8 @@ Mobile (iOS + Android) Dots and Boxes game built with React Native + Expo. Owner
 
 - `game.ts`: state, `newGame`, `applyMove`, `isLegal`, `isOver`, `winner`, `undo` (replays history). State is immutable. `h` lines are (rows+1) x cols, `v` lines are rows x (cols+1). Each line stores which player drew it (0 | 1 | null).
 - `game.test.ts`: logic sanity tests (bonus move, double box, undo, random full 12x12 game).
-- `App.tsx`: menu + game screen. A transparent `Pressable` overlay sits on top of a `pointerEvents="none"` visual layer, so tap coordinates are exact. A tap anywhere inside a box picks the nearest FREE edge of that box (`pickMove`), which keeps 12x12 playable on small screens.
+- `theme.ts`: light/dark themes, player color palettes (deeper in light, brighter in dark), `pickColor` (picking the other player's color swaps), `tint`, `textOn`. Pure TypeScript, no React. Tests in `theme.test.ts`.
+- `App.tsx`: menu -> setup (theme + each player's color) -> game screen. Colors come from a `LookContext`, never hard-coded. A transparent `Pressable` overlay sits on top of a `pointerEvents="none"` visual layer, so tap coordinates are exact. A tap anywhere inside a box picks the nearest FREE edge of that box (`pickMove`), which keeps 12x12 playable on small screens.
 
 ## Setup
 
