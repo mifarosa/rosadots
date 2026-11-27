@@ -5,7 +5,6 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -250,16 +249,83 @@ function Board({
   );
 }
 
+function PlayerPanel({
+  p,
+  state,
+  pending,
+  missed,
+  flipped,
+  onConfirm,
+}: {
+  p: Player;
+  state: GameState;
+  pending: Move | null;
+  missed: boolean;
+  flipped: boolean;
+  onConfirm: () => void;
+}) {
+  const over = isOver(state);
+  const active = !over && state.current === p;
+  const w = winner(state);
+  const canConfirm = active && pending !== null;
+
+  const text = over
+    ? w === 'draw'
+      ? 'Berabere! 🤝'
+      : w === p
+        ? '🎉 Kazandın!'
+        : 'Oyun bitti'
+    : !active
+      ? 'Rakip oynuyor…'
+      : missed
+        ? 'Çizgiye biraz daha yakın dokun 👆'
+        : pending
+          ? 'Bu çizgi mi? Tekrar dokun ya da ✓ Çiz'
+          : 'Sıra sende! Bir çizgi seç';
+
+  return (
+    // The top player's panel is rotated 180 degrees so it faces them.
+    <View
+      style={[
+        styles.panel,
+        { borderColor: COLORS[p] },
+        active && { backgroundColor: TINTS[p] },
+        flipped && { transform: [{ rotate: '180deg' }] },
+      ]}
+    >
+      <View style={styles.panelRow}>
+        <View style={styles.panelScore}>
+          <Text style={[styles.scoreName, { color: COLORS[p] }]}>{playerName(p)}</Text>
+          <Text style={styles.scoreValue}>{state.scores[p]}</Text>
+        </View>
+        <Pressable
+          style={({ pressed }) => [
+            styles.confirmButton,
+            { backgroundColor: COLORS[p] },
+            !canConfirm && styles.disabled,
+            pressed && styles.pressed,
+          ]}
+          disabled={!canConfirm}
+          onPress={onConfirm}
+        >
+          <Text style={styles.confirmText}>✓ Çiz</Text>
+        </Pressable>
+      </View>
+      <Text style={styles.panelText}>{text}</Text>
+    </View>
+  );
+}
+
 function Game({ size, onExit }: { size: number; onExit: () => void }) {
   const [state, setState] = useState(() => newGame(size));
   // Line the player has selected but not confirmed yet.
   const [pending, setPending] = useState<Move | null>(null);
   // True after a tap that did not land close enough to any line.
   const [missed, setMissed] = useState(false);
-  const { width, height } = useWindowDimensions();
-  const boardSize = Math.min(width - 24, height - 330);
+  // Free space between the two player panels, measured at layout time.
+  const [area, setArea] = useState({ w: 0, h: 0 });
+  const boardSize = Math.min(area.w, area.h) - 8;
   const over = isOver(state);
-  const w = winner(state);
 
   const confirm = () => {
     if (pending && isLegal(state, pending)) setState(applyMove(state, pending));
@@ -273,55 +339,28 @@ function Game({ size, onExit }: { size: number; onExit: () => void }) {
     else setPending(m);
   };
 
-  const hint = over
-    ? 'Yeni oyun için aşağıdaki butona bas'
-    : missed
-      ? 'Ortaya değil, çizgiye biraz daha yakın dokun 👆'
-      : pending
-      ? 'Bu çizgi mi? Tekrar dokun ya da ✓ Çiz\'e bas'
-      : 'Bir çizgiye dokun, sonra onayla';
-
-  const message = over
-    ? w === 'draw'
-      ? 'Berabere!'
-      : `${playerName(w as Player)} kazandı!`
-    : `Sıra: ${playerName(state.current)}`;
+  const panelProps = { state, pending, missed, onConfirm: confirm };
 
   return (
     <View style={styles.game}>
-      <View style={styles.scoreRow}>
-        {([0, 1] as Player[]).map((p) => (
-          <View
-            key={p}
-            style={[
-              styles.scoreBox,
-              { borderColor: COLORS[p] },
-              !over && state.current === p && { backgroundColor: TINTS[p] },
-            ]}
-          >
-            <Text style={[styles.scoreName, { color: COLORS[p] }]}>{playerName(p)}</Text>
-            <Text style={styles.scoreValue}>{state.scores[p]}</Text>
-          </View>
-        ))}
-      </View>
-      <Text style={styles.status}>{message}</Text>
-      <Board state={state} size={boardSize} pending={pending}
-        onTap={onTap}
-        onMiss={() => !over && setMissed(true)}
-      />
-      <Text style={styles.hint}>{hint}</Text>
-      <Pressable
-        style={({ pressed }) => [
-          styles.confirmButton,
-          { backgroundColor: COLORS[state.current] },
-          !pending && styles.disabled,
-          pressed && styles.pressed,
-        ]}
-        disabled={!pending}
-        onPress={confirm}
+      <PlayerPanel p={1} flipped {...panelProps} />
+      <View
+        style={styles.boardArea}
+        onLayout={(e) =>
+          setArea({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })
+        }
       >
-        <Text style={styles.confirmText}>✓ Çiz</Text>
-      </Pressable>
+        {boardSize > 0 && (
+          <Board
+            state={state}
+            size={boardSize}
+            pending={pending}
+            onTap={onTap}
+            onMiss={() => !over && setMissed(true)}
+          />
+        )}
+      </View>
+      <PlayerPanel p={0} flipped={false} {...panelProps} />
       <View style={styles.buttonRow}>
         <Pressable
           style={({ pressed }) => [styles.smallButton, pressed && styles.pressed]}
@@ -338,6 +377,7 @@ function Game({ size, onExit }: { size: number; onExit: () => void }) {
           disabled={state.history.length === 0}
           onPress={() => {
             setPending(null);
+            setMissed(false);
             setState(undo);
           }}
         >
@@ -347,6 +387,7 @@ function Game({ size, onExit }: { size: number; onExit: () => void }) {
           style={({ pressed }) => [styles.smallButton, pressed && styles.pressed]}
           onPress={() => {
             setPending(null);
+            setMissed(false);
             setState(newGame(size));
           }}
         >
@@ -389,27 +430,25 @@ const styles = StyleSheet.create({
   menuButtonText: { color: '#fff', fontSize: 20, fontWeight: '700' },
   pressed: { opacity: 0.7 },
   disabled: { opacity: 0.35 },
-  game: { flex: 1, alignItems: 'center', justifyContent: 'space-evenly' },
-  scoreRow: { flexDirection: 'row', gap: 16 },
-  scoreBox: {
-    minWidth: 120,
+  game: { flex: 1, alignItems: 'center', paddingHorizontal: 8, paddingVertical: 6, gap: 6 },
+  boardArea: { flex: 1, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center' },
+  panel: {
+    alignSelf: 'stretch',
+    borderWidth: 2,
+    borderRadius: 16,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 12,
-    borderWidth: 2,
-    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#fff',
   },
+  panelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  panelScore: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  panelText: { fontSize: 14, fontWeight: '600', color: INK, textAlign: 'center' },
   scoreName: { fontSize: 14, fontWeight: '700' },
   scoreValue: { fontSize: 28, fontWeight: '800', color: INK },
-  status: { fontSize: 20, fontWeight: '700', color: INK },
   abs: { position: 'absolute' },
-  hint: { fontSize: 16, color: '#666', textAlign: 'center', paddingHorizontal: 16 },
-  confirmButton: {
-    paddingVertical: 14,
-    paddingHorizontal: 48,
-    borderRadius: 30,
-  },
-  confirmText: { color: '#fff', fontSize: 22, fontWeight: '800' },
+  confirmButton: { paddingVertical: 12, paddingHorizontal: 32, borderRadius: 28 },
+  confirmText: { color: '#fff', fontSize: 20, fontWeight: '800' },
   box: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
   mark: { fontWeight: '700', includeFontPadding: false },
   buttonRow: { flexDirection: 'row', gap: 10 },
