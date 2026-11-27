@@ -21,7 +21,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "test": "tsx game.test.ts && tsx ai.test.ts && tsx pickMove.test.ts && tsx theme.test.ts",
+    "test": "tsx game.test.ts && tsx ai.test.ts && tsx pickMove.test.ts && tsx theme.test.ts && tsx protocol.test.ts && tsx server/src/rooms.test.ts",
     "typecheck": "tsc --noEmit --noUnusedLocals --noUnusedParameters"
   },
   "private": true

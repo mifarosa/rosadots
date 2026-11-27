@@ -1,6 +1,9 @@
 // Pure game rules for Dots and Boxes. No React / React Native imports:
 // this file is shared with the future online server to validate moves.
 
+// Square board sizes offered in the menus (game.ts itself supports any rows x cols).
+export const BOARD_SIZES = [4, 6, 8, 12];
+
 export type Player = 0 | 1;
 export type Cell = Player | null;
 

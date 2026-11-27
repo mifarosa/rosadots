@@ -1,8 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { PrimaryButton } from '../components/Buttons';
+import { BOARD_SIZES } from '../game';
 import { useLook } from '../look';
-
-const SIZES = [4, 6, 8, 12];
 
 export function Menu({ onPick }: { onPick: (size: number) => void }) {
   const { theme, colors } = useLook();
@@ -11,7 +10,7 @@ export function Menu({ onPick }: { onPick: (size: number) => void }) {
       <Text style={[styles.title, { color: colors[0] }]}>Rosadots</Text>
       <Text style={[styles.subtitle, { color: theme.ink }]}>Noktalar ve Kutular</Text>
       <Text style={[styles.label, { color: theme.muted }]}>Tahta boyutu</Text>
-      {SIZES.map((n) => (
+      {BOARD_SIZES.map((n) => (
         <PrimaryButton key={n} label={`${n} x ${n}`} onPress={() => onPick(n)} />
       ))}
     </View>
