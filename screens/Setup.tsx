@@ -1,57 +1,9 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text } from 'react-native';
 import { PrimaryButton, QuietButton, Segmented } from '../components/Buttons';
+import { ColorField, Field } from '../components/Fields';
 import { GameOptions, playerNames } from '../config';
 import { useLook } from '../look';
-import { COLOR_IDS, COLOR_NAMES, PALETTE, pickColor, Settings, textOn } from '../theme';
-
-function Field({ title, children }: { title: string; children: React.ReactNode }) {
-  const { theme } = useLook();
-  return (
-    <View style={styles.field}>
-      <Text style={[styles.fieldTitle, { color: theme.ink }]}>{title}</Text>
-      {children}
-    </View>
-  );
-}
-
-// Round color choices for one player. A color held by the other player shows
-// that player's number; tapping it swaps the two colors.
-function ColorField({
-  who,
-  name,
-  settings,
-  onSettings,
-}: {
-  who: 'p1' | 'p2';
-  name: string;
-  settings: Settings;
-  onSettings: (s: Settings) => void;
-}) {
-  const { theme } = useLook();
-  const other = who === 'p1' ? 'p2' : 'p1';
-  return (
-    <Field title={`${name}: ${COLOR_NAMES[settings[who]]}`}>
-      <View style={styles.swatches}>
-        {COLOR_IDS.map((id) => {
-          const hex = PALETTE[settings.theme][id];
-          const badge = id === settings[who] ? '✓' : id === settings[other] ? (other === 'p1' ? '1' : '2') : '';
-          return (
-            <Pressable
-              key={id}
-              onPress={() => onSettings(pickColor(settings, who, id))}
-              style={[
-                styles.swatch,
-                { backgroundColor: hex, borderColor: id === settings[who] ? theme.ink : 'transparent' },
-              ]}
-            >
-              <Text style={[styles.badge, { color: textOn(hex) }]}>{badge}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </Field>
-  );
-}
+import { Settings } from '../theme';
 
 export function Setup({
   size,
@@ -120,9 +72,4 @@ export function Setup({
 const styles = StyleSheet.create({
   setup: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: 18, padding: 16 },
   title: { fontSize: 28, fontWeight: '800' },
-  field: { alignItems: 'center', gap: 8 },
-  fieldTitle: { fontSize: 16, fontWeight: '700' },
-  swatches: { flexDirection: 'row', gap: 10, flexWrap: 'wrap', justifyContent: 'center' },
-  swatch: { width: 46, height: 46, borderRadius: 23, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
-  badge: { fontSize: 18, fontWeight: '800' },
 });

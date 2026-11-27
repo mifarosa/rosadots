@@ -4,6 +4,7 @@ import {
   isLegal,
   isOver,
   legalMoves,
+  movesBy,
   newGame,
   undo,
   winner,
@@ -105,6 +106,14 @@ const play = (s: GameState, ...ms: Move[]) => ms.reduce(applyMove, s);
   let g = s;
   while (g.history.length > 200) g = undo(g);
   assert.equal(g.history.length, 200);
+}
+
+// movesBy counts moves per player, bonus moves included.
+{
+  const s = play(newGame(2), H(0, 0), V(0, 0), V(0, 1), H(2, 1), H(1, 0)); // player 0 closes a box
+  assert.equal(movesBy(s, 0), 3);
+  assert.equal(movesBy(s, 1), 2);
+  assert.equal(movesBy(newGame(2), 0), 0);
 }
 
 console.log('game.test.ts: all tests passed');

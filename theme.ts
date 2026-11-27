@@ -99,3 +99,10 @@ export function pickColor(s: Settings, who: 'p1' | 'p2', color: ColorId): Settin
   if (s[other] === color) return { ...s, [other]: s[who], [who]: color };
   return { ...s, [who]: color };
 }
+
+// The color to show for the opponent on my screen: theirs, unless I already
+// use it, then the first color I do not use.
+export function opponentColor(mine: ColorId, theirs: ColorId | undefined): ColorId {
+  if (theirs && theirs !== mine) return theirs;
+  return COLOR_IDS.find((id) => id !== mine) as ColorId;
+}

@@ -1,0 +1,20 @@
+# systemd unit. Edit User and the paths if yours differ, then:
+#   sudo cp rosadots-server.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now rosadots-server
+[Unit]
+Description=Rosadots online server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=deploy
+WorkingDirectory=/opt/rosadots/server
+EnvironmentFile=-/opt/rosadots/server/.env
+ExecStart=/usr/bin/node --import tsx src/index.ts
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

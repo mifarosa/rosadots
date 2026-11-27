@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { COLOR_IDS, DEFAULT_SETTINGS, PALETTE, pickColor, textOn, tint } from './theme';
+import { COLOR_IDS, DEFAULT_SETTINGS, opponentColor, PALETTE, pickColor, textOn, tint } from './theme';
 
 // Picking a free color changes only that player.
 {
@@ -24,5 +24,11 @@ for (const theme of ['light', 'dark'] as const) {
 assert.equal(tint('#ff0000', 0.5), 'rgba(255,0,0,0.5)');
 assert.equal(textOn('#000000'), '#ffffff');
 assert.equal(textOn('#ffffff'), '#1b1b27');
+
+// Opponent color: kept unless it clashes with mine.
+assert.equal(opponentColor('pembe', 'mavi'), 'mavi');
+assert.equal(opponentColor('pembe', 'pembe'), 'mavi');
+assert.equal(opponentColor('mavi', 'mavi'), 'pembe');
+assert.notEqual(opponentColor('pembe', undefined), 'pembe');
 
 console.log('theme.test.ts: all tests passed');

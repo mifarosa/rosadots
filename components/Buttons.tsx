@@ -2,11 +2,25 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useLook } from '../look';
 import { textOn } from '../theme';
 
-export function PrimaryButton({ label, onPress }: { label: string; onPress: () => void }) {
+export function PrimaryButton({
+  label,
+  onPress,
+  disabled,
+}: {
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
   const { colors } = useLook();
   return (
     <Pressable
-      style={({ pressed }) => [styles.primary, { backgroundColor: colors[0] }, pressed && styles.pressed]}
+      disabled={disabled}
+      style={({ pressed }) => [
+        styles.primary,
+        { backgroundColor: colors[0] },
+        disabled && styles.disabled,
+        pressed && styles.pressed,
+      ]}
       onPress={onPress}
     >
       <Text style={[styles.primaryText, { color: textOn(colors[0]) }]}>{label}</Text>

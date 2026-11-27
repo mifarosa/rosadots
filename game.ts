@@ -140,6 +140,17 @@ export function undoTo(s: GameState, p: Player): GameState {
   return g;
 }
 
+// How many moves `p` has made so far, found by replaying the game.
+export function movesBy(s: GameState, p: Player): number {
+  let g = newGame(s.rows, s.cols);
+  let n = 0;
+  for (const m of s.history) {
+    if (g.current === p) n++;
+    g = applyMove(g, m);
+  }
+  return n;
+}
+
 // All lines still free, in a stable order.
 export function legalMoves(s: GameState): Move[] {
   const out: Move[] = [];

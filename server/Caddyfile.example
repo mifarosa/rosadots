@@ -1,0 +1,5 @@
+# Caddy gets a free TLS certificate by itself and passes WebSockets through.
+# The app connects to wss://rosadots.mifarosa.com, Caddy forwards to the server on localhost.
+rosadots.mifarosa.com {
+	reverse_proxy 127.0.0.1:8787
+}

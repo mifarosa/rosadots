@@ -2,10 +2,12 @@
   "name": "rosadots-server",
   "private": true,
   "description": "Online rooms for Rosadots. Validates every move with the game's own rules (../game.ts).",
-  "engines": { "node": ">=20.6" },
+  "engines": {
+    "node": ">=20.6"
+  },
   "scripts": {
-    "start": "tsx --env-file=.env src/index.ts",
-    "test": "tsx src/rooms.test.ts && tsx src/server.test.ts",
+    "start": "tsx src/index.ts",
+    "test": "tsx src/rooms.test.ts && tsx src/server.test.ts && tsx src/session.test.ts",
     "typecheck": "tsc -p ."
   },
   "dependencies": {

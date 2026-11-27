@@ -7,7 +7,8 @@ Mobile (iOS + Android) Dots and Boxes game built with React Native + Expo. Owner
 - Talk to the user in Turkish. Code comments in English.
 - Keep dependencies minimal. Prefer plain React Native views over extra libraries.
 - Game rules live ONLY in `game.ts` (pure TypeScript, no React/RN imports). The same file will later run on the online server to validate moves.
-- Run `npm test` after any change to the pure files (`game.ts`, `ai.ts`, `pickMove.ts`, `theme.ts`), and `npm run typecheck` after any change to UI files (`App.tsx`, `screens/`, `components/`, `look.tsx`).
+- Run `npm test` after any change to the pure files (`game.ts`, `ai.ts`, `pickMove.ts`, `theme.ts`, `protocol.ts`, `server/src/rooms.ts`), and `npm run typecheck` after any change to UI files (`App.tsx`, `screens/`, `components/`, `look.tsx`, `online/`). After any change to `server/`, also run `npm test` and `npm run typecheck` inside `server/` (end-to-end tests over real sockets).
+- Never change a message in `protocol.ts` without checking both `server/` and `online/session.ts`: an old app build talks to the new server.
 
 ## Game rules (implemented)
 
@@ -24,15 +25,23 @@ Pure TypeScript at the repo root (no React / RN imports, so the online server ca
 - `ai.ts`: `chooseMove(state, level, rng?)` for the computer. `easy`: takes a box if it can, else random. `medium`: takes a box, else avoids giving the third side, else gives away as little as possible (`sacrificeCost`). A `hard` level (chains / search) is planned.
 - `pickMove.ts`: turns a tap into a line (nearest free edge of the tapped box, ignores the middle of big boxes).
 - `theme.ts`: light/dark themes, player color palettes (deeper in light, brighter in dark), `pickColor` (picking the other player's color swaps), `tint`, `textOn`.
+- `protocol.ts`: messages between phones and the online server, and the validation of untrusted input. Shared by both sides.
 - `config.ts`: `GameOptions` (opponent friend/cpu, level) and player names. The computer is always player 2 (top panel).
-- Tests next to each file: `game.test.ts`, `ai.test.ts`, `pickMove.test.ts`, `theme.test.ts`.
+- Tests next to each file: `game.test.ts`, `ai.test.ts`, `pickMove.test.ts`, `theme.test.ts`, `protocol.test.ts`.
+
+Online:
+
+- `server/`: the online server (Node + `ws`, own `package.json`). `server/src/rooms.ts` is the room logic (rooms, reconnect via per-seat token, quick match, move clock, undo with consent, rematch). It has no sockets, so it is tested with a fake clock (`rooms.test.ts`). `server/src/index.ts` is only the WebSocket transport (heartbeat, rate limit). Every move is checked with `game.ts`: the server is the source of truth. Deployment: `server/README.md` (Caddy for TLS, systemd).
+- `online/session.ts`: the phone side. One WebSocket, automatic reconnect with backoff, rejoin by the saved room token (`online/storage.ts`, AsyncStorage), rebuilds the game from the server's move list. Framework-free; tested against the real server in `server/src/session.test.ts`.
+- `online/config.ts`: server URL (`EXPO_PUBLIC_ONLINE_URL`, default `wss://rosadots.mifarosa.com`). iOS release builds need `wss://`.
+- Screens: `screens/Online.tsx` (keeps the connection alive), `OnlineLobby.tsx` (create room, join by code, quick match), `OnlineGame.tsx` (waiting room, game, undo request, rematch, connection strip).
 
 UI (React Native):
 
 - `App.tsx`: only the screen flow menu -> setup -> game and the shared theme/options state.
 - `look.tsx`: `LookContext` (theme + per-player colors). Colors are never hard-coded; read them with `useLook()`.
 - `screens/Menu.tsx`, `screens/Setup.tsx` (opponent, level, theme, colors), `screens/Game.tsx` (turn logic, computer timers, undo).
-- `components/Board.tsx`: a transparent `Pressable` overlay sits on top of a `pointerEvents="none"` visual layer, so tap coordinates are exact. `components/PlayerPanel.tsx`: score + own confirm button; the top panel is rotated 180 degrees for face-to-face play (not when the computer sits there). `components/Buttons.tsx`: `PrimaryButton`, `QuietButton`, `ConfirmButton`, `Segmented`.
+- `components/Board.tsx`: a transparent `Pressable` overlay sits on top of a `pointerEvents="none"` visual layer, so tap coordinates are exact. `components/PlayerPanel.tsx`: score + own confirm button; kinds `local` / `cpu` / `remote`. `components/GameView.tsx`: the game screen shared by local, computer and online play (panels, board, banner, footer); the parent owns the state. The top panel is rotated 180 degrees for face-to-face play on one phone (not against the computer or online). `components/Fields.tsx`: `Field`, `ColorField`. `components/Buttons.tsx`: `PrimaryButton`, `QuietButton`, `ConfirmButton`, `Segmented`.
 - Line drawing is select-then-confirm: first tap highlights a line, tapping it again (or the player's own "Çiz" button) draws it.
 
 ## Setup
@@ -73,7 +82,7 @@ The bundle id / package cannot change after store release.
 2. Preview-then-confirm mode (first tap highlights the line, second tap confirms), keep Undo.
 3. Haptics (`expo-haptics`) on line draw and box capture; optional sound.
 4. Play vs computer: easy and medium are done. Next: hard level (chain counting / double-cross, alpha-beta search with a depth limit on big boards).
-5. Online multiplayer: Node + WebSocket (`ws`) room server on the user's free Oracle Cloud Always Free instance. Server imports `game.ts` to validate every move. Room codes to invite a friend, reconnect support, server is the source of truth.
+5. Online multiplayer: code is written and tested (room codes, reconnect, quick match, move clock, undo with consent, rematch). Still to do: deploy `server/` (DNS A record `rosadots.mifarosa.com`, Caddy, systemd; see `server/README.md`), then try it on two real phones. Not done yet: persisting theme/color choices, push notification when it is your turn.
 6. Store prep: icon, splash, privacy policy, EAS Build for iOS/Android.
 
 ## Known notes

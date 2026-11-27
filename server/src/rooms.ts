@@ -10,6 +10,7 @@ import {
   isLegal,
   isOver,
   Move,
+  movesBy,
   newGame,
   Player,
   undoTo,
@@ -390,15 +391,4 @@ export class Lobby {
       this.deps.send(conn, { t: 'game', seat: i, moves: room.state.history, remainingMs, auto });
     }
   }
-}
-
-// How many moves a player has made, found by replaying the game.
-function movesBy(state: GameState, seat: Player): number {
-  let g = newGame(state.rows, state.cols);
-  let n = 0;
-  for (const m of state.history) {
-    if (g.current === seat) n++;
-    g = applyMove(g, m);
-  }
-  return n;
 }
