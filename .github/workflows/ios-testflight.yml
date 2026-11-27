@@ -45,7 +45,7 @@ jobs:
       # temp file and patch eas.json at runtime so nothing sensitive is committed.
       - name: Submit to TestFlight
         env:
-          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+          ASC_API_KEY_P8: ${{ secrets.ASC_KEY_P8 || secrets.ASC_API_KEY_P8 }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
@@ -64,7 +64,7 @@ jobs:
           } > "$KEY_PATH"
           chmod 600 "$KEY_PATH"
           if ! openssl pkey -in "$KEY_PATH" -noout 2>/dev/null; then
-            echo "::error::ASC_API_KEY_P8 secret is not a valid .p8 key. Paste the whole file content, including the BEGIN/END lines."
+            echo "::error::ASC_KEY_P8 secret is not a valid .p8 key. Paste the whole file content, including the BEGIN/END lines."
             exit 1
           fi
           jq --arg p "$KEY_PATH" --arg k "$ASC_KEY_ID" --arg i "$ASC_ISSUER_ID" --arg a "$ASC_APP_ID" \
